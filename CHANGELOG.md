@@ -10,8 +10,16 @@
   one millisecond, turning a 15µs step into a 1.3ms one. A MessagePort
   round-trip is a macrotask with no minimum delay and measures the same 15µs,
   so it now sits between the two and the timer is a last resort that should
-  never be reached. Found when the audit job took eight minutes in CI and three
-  seconds locally.
+  never be reached.
+
+  Found while investigating why the audit job took eight minutes in CI and
+  three seconds locally — but it was *not* the cause of that. Normalised per
+  unit of work, CI improved 1.8×, not 80×, which means those runners were
+  never taking the fallback. A macrotask round-trip simply costs far more on a
+  virtualised runner than on a laptop, and the audit was asking for too many
+  schedules. That was fixed by lowering the CI schedule count; this entry is a
+  real cliff found on the way, affecting hosts that genuinely lack
+  `setImmediate`.
 
 - The "a simulation is already running" error now names the cause people
   actually hit. Nesting two runs on purpose is rare; a test runner killing a
