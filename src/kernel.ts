@@ -385,6 +385,7 @@ export class Kernel {
       time: this.queue.now,
       events: this.events.all(),
       plan: this.tape.values(),
+      decisions: this.tape.decisions,
     };
   }
 

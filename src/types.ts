@@ -1,4 +1,4 @@
-import type { TraceEvent } from "./trace.js";
+import type { Decision, TraceEvent } from "./trace.js";
 
 /** How a run went wrong. Each kind maps to a different failure report. */
 export type FailureKind =
@@ -31,6 +31,13 @@ export interface RunResult {
   events: readonly TraceEvent[];
   /** The decision values this run made — replay this to reproduce it exactly. */
   plan: number[];
+  /**
+   * The same decisions with their kind, label and bound. `plan` is what you
+   * replay; this is what tells you which *other* choices existed at each
+   * point, which is what systematic exploration needs in order to know when
+   * it has seen the whole space.
+   */
+  decisions: readonly Decision[];
 }
 
 export interface SimulateOptions {

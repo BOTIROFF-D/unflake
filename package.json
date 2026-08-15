@@ -1,7 +1,7 @@
 {
   "name": "unflake",
-  "version": "0.1.0",
-  "description": "Deterministic simulation testing for TypeScript. Find async races, deadlocks and lost retries — then reproduce them from a seed, every time.",
+  "version": "0.2.0",
+  "description": "Deterministic simulation testing for TypeScript. Find async races, deadlocks and lost retries, reproduce them from a seed, and exhaustively prove small tests correct.",
   "keywords": [
     "deterministic",
     "simulation",
@@ -37,6 +37,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "engines": {

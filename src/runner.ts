@@ -115,7 +115,7 @@ function better(candidate: RunResult, incumbent: RunResult): boolean {
   return a[0] < b[0] || (a[0] === b[0] && (a[1] < b[1] || (a[1] === b[1] && a[2] < b[2])));
 }
 
-async function shrink(
+export async function shrink(
   body: SimBody,
   failing: RunResult,
   options: CheckOptions,

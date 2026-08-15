@@ -9,9 +9,23 @@
 
 import { formatMs } from "./kernel.js";
 import { formatSeed } from "./prng.js";
-import type { CheckReport } from "./runner.js";
 import type { TraceEvent } from "./trace.js";
 import type { RunResult } from "./types.js";
+
+/**
+ * What the report needs to know. Both `check` (random runs) and `explore`
+ * (enumerated schedules) produce this shape; `unit` is only there so the
+ * header says "run" or "schedule" rather than picking one and being wrong
+ * half the time.
+ */
+export interface FailureReport {
+  name: string;
+  runs: number;
+  failure: RunResult | null;
+  failedOnRun: number | null;
+  shrank: { from: number; to: number } | null;
+  unit?: "run" | "schedule";
+}
 
 const useColor =
   typeof process !== "undefined" &&
@@ -71,19 +85,26 @@ export function formatRunSummary(result: RunResult): string {
   return `${formatSeed(result.seed)} ${status} · ${result.steps} steps · ${formatMs(result.time)}`;
 }
 
-/** The full report printed when `check` finds a counterexample. */
-export function formatFailure(report: CheckReport): string {
+/** The full report printed when a counterexample is found. */
+export function formatFailure(report: FailureReport): string {
   const run = report.failure;
   if (!run || !run.failure) return `${report.name}: failed with no recorded failure`;
   const failure = run.failure;
+  const unit = report.unit ?? "run";
 
   const header = [
     "",
     `  ${red("✗")} ${bold(report.name)}`,
     `    ${dim(
       [
-        `seed ${formatSeed(run.seed)}`,
-        report.failedOnRun ? `found on run ${report.failedOnRun} of ${report.runs}` : null,
+        // An enumerated schedule is reproduced by its plan, not its seed, and
+        // printing a seed there would suggest a knob that does nothing.
+        unit === "run" ? `seed ${formatSeed(run.seed)}` : null,
+        report.failedOnRun
+          ? unit === "run"
+            ? `found on run ${report.failedOnRun} of ${report.runs}`
+            : `found on schedule ${report.failedOnRun}`
+          : null,
         report.shrank && report.shrank.from !== report.shrank.to
           ? `shrunk ${report.shrank.from} → ${report.shrank.to} steps`
           : null,
@@ -102,7 +123,9 @@ export function formatFailure(report: CheckReport): string {
     "",
     `    ${bold("reproduce")}`,
     `      ${dim("await")} simulate(body, { plan: ${formatPlan(run.plan)}, planStrict: true })`,
-    `      ${dim(`or explore the same seed again: { seed: ${formatSeed(run.seed)} }`)}`,
+    ...(unit === "run"
+      ? [`      ${dim(`or explore the same seed again: { seed: ${formatSeed(run.seed)} }`)}`]
+      : []),
     "",
   ];
 

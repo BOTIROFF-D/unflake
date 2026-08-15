@@ -105,6 +105,19 @@ Each of these lives in [`examples/`](./examples) as a runnable test: a plausible
 | [`lock-order`](./examples/lock-order.test.ts) | Two transfers take the same two locks in opposite orders | The test does not fail, it hangs — and a timeout names no culprit |
 | [`retry-double-charge`](./examples/retry-double-charge.test.ts) | A payment times out client-side, gets retried, and settles twice | The abandoned request lands after the test has already walked away |
 
+## Proving, instead of sampling
+
+`check` draws random schedules, so a clean result means *not found in 200 tries*. For a small enough test you can have something much stronger:
+
+```ts
+const report = await explore("a connection is never leased twice", body);
+// { ok: true, schedules: 24, exhaustive: true }
+```
+
+`explore` enumerates the decision tree rather than sampling it. It runs, looks at which choices the run actually made, and queues the prefix that takes each untaken alternative. When the queue empties on its own, `exhaustive` is true — and then a passing result is not "no failure was found" but **no failure exists**, for every execution the model can produce.
+
+The bound is the whole story, so be precise about what it covers. The model is macrotask ordering, virtual time, and the choices unflake records — not the machine. And the space has to be small enough to finish: there is no partial-order reduction here, so the tree grows multiplicatively, and a wide `latency: [1, 25]` is a 25-way branch at every I/O. Narrow the ranges for the tests you want to exhaust, and use `check` for the rest.
+
 ## API
 
 ```ts
@@ -118,6 +131,11 @@ check(name, body, options?): Promise<CheckReport>
 Explore many seeds. Throws `UnflakeFailure` with a formatted report on the first counterexample, after shrinking it.
 
 Options: `runs` (default 200), `seed`, `shrink` (default true), `shrinkAttempts` (500), `maxSteps` (200,000), `maxVirtualTime` (24h), `plan` / `planStrict` for replay, `verbose`.
+
+```ts
+explore(name, body, options?): Promise<ExploreReport>
+```
+Enumerate schedules systematically instead of sampling them. Throws `UnflakeExploreFailure` on a counterexample; otherwise returns `{ schedules, exhaustive }`, where `exhaustive: true` means the space was covered completely. Options: `maxSchedules` (default 5,000), `onSchedule` for progress, plus the shared ones above.
 
 The `sim` handed to your body:
 
@@ -139,9 +157,9 @@ These are the things unflake genuinely cannot do. They are here rather than at t
 
 **It only sees what it controls.** If your code awaits a real socket, a real file, or a native driver, the scheduler has no idea that work is outstanding — and a run with nothing left to schedule looks exactly like a deadlock. Route real I/O through `sim.io()` or a fake. The deadlock message says so, because this is the mistake everyone makes first.
 
-**It cannot prove absence.** 500 runs is 500 schedules out of a space that is astronomically larger. A clean `check` means *not found*, not *impossible*. Treat it the way you treat a passing fuzz run.
+**`check` cannot prove absence.** 500 runs is 500 schedules out of a space that is astronomically larger. A clean `check` means *not found*, not *impossible*. Treat it the way you treat a passing fuzz run. `explore` is the one that can prove a negative, and only when it reports `exhaustive: true`.
 
-**The search is random, not systematic.** Schedules are sampled uniformly. There is no partial-order reduction, so unflake will happily explore two orderings that are provably equivalent while never reaching a third that matters. Tools like Rust's `loom` do better here; adding DPOR is the most valuable thing this project is missing.
+**No partial-order reduction.** `explore` enumerates systematically but does not *reduce*: unflake cannot see which operations touch shared state, so it cannot prove two orderings equivalent and skip one. The tree grows multiplicatively and exhaustive coverage stays out of reach for anything but small tests. Rust's `loom` does reduce, because code under test uses loom's own atomics and mutexes and it therefore sees every shared access. Matching that in JavaScript would mean asking users to declare their shared resources — a real design cost, and the main open question for this project.
 
 **No real parallelism.** Node is single-threaded and so is the simulator. Races between worker threads, between processes, or inside native addons are out of scope. This is about *concurrency* bugs, not *parallelism* bugs.
 
@@ -161,12 +179,18 @@ In JavaScript the closest thing is [`@sinonjs/fake-timers`](https://github.com/s
 
 ```bash
 npm install
-npm test          # 26 tests, including the determinism suite
+npm test          # 33 tests, including the determinism and exhaustiveness suites
 npm run typecheck
 npm run build
 ```
 
-The determinism suite in [`test/determinism.test.ts`](./test/determinism.test.ts) is the one that matters. It pins the promise this project is built on: same seed, byte-identical run; a recorded plan replays without the seed; and different seeds really do produce different schedules, so the search is a search and not an expensive way to run one test 200 times. If a change breaks those, it is the change that is wrong.
+Two suites carry the claims, and they are the ones to be careful with.
+
+[`test/determinism.test.ts`](./test/determinism.test.ts) pins the promise everything else rests on: same seed, byte-identical run; a recorded plan replays without the seed; and different seeds really do produce different schedules, so the search is a search and not an expensive way to run one test 200 times.
+
+[`test/explore.test.ts`](./test/explore.test.ts) pins the exhaustiveness claim against spaces small enough to count by hand — three simultaneous tasks must yield exactly six schedules, all distinct, and all six orderings must actually occur. That last check is not redundant: a branching bug that skips a subtree still reports `exhaustive: true`, just with a smaller number, and it caught exactly that during development.
+
+If a change breaks either suite, it is the change that is wrong.
 
 ## License
 
