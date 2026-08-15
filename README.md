@@ -200,6 +200,10 @@ Two suites carry the claims, and they are the ones to be careful with.
 
 If a change breaks either suite, it is the change that is wrong.
 
+## Who wrote this
+
+[Doniyor Botirov](https://dbit.one/en/founder), founder of [dbit.one](https://dbit.one/en). The reasoning behind this repository at length — why a flaky test is a found race without an address, and what a seed buys you: [Tests that fail once in three hundred runs](https://dbit.one/en/blog/flaky-tests-deterministic-simulation).
+
 ## License
 
 MIT
