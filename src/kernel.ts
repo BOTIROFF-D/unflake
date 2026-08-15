@@ -319,8 +319,13 @@ export class Kernel {
         this.record({ kind: "assertion", message: describe(cause), cause });
       });
 
+      // One drain before the loop lets the body run to its first suspension
+      // point. After that every iteration ends inside `fire`, which drains on
+      // its way out — so draining again here would buy nothing and cost a
+      // macrotask round-trip per step, which is the dominant cost of a run.
+      await yieldToHost();
+
       while (true) {
-        await yieldToHost();
         this.checkInvariants();
         if (this.failure) break;
         if (this.pendingTasks === 0) break;
@@ -351,12 +356,19 @@ export class Kernel {
         }
 
         this.queue.now = batch.time;
+        let fired = false;
         for (const timer of this.orderBatch(batch.timers)) {
           if (!this.queue.consume(timer)) continue; // cancelled by an earlier callback
+          fired = true;
           await this.fire(timer);
           this.checkInvariants();
           if (this.failure || this.pendingTasks === 0) break;
         }
+        // A batch in which nothing ran would loop without ever yielding.
+        // It should not be reachable — cancelling removes a timer from the
+        // queue outright — but spinning the process is too high a price for
+        // being wrong about that.
+        if (!fired) await yieldToHost();
       }
     } finally {
       this.patch.restore();
