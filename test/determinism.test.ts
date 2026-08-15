@@ -138,7 +138,7 @@ describe("determinism", () => {
 
   it("refuses to nest simulations rather than corrupting both", async () => {
     const result = await simulate(async () => {
-      await expect(simulate(async () => {})).rejects.toThrow(/cannot nest/);
+      await expect(simulate(async () => {})).rejects.toThrow(/already running/);
     });
     expect(result.ok).toBe(true);
   });

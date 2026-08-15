@@ -27,18 +27,83 @@ const realSetImmediate: ((fn: () => void) => unknown) | undefined =
     ? globalThis.setImmediate.bind(globalThis)
     : undefined;
 const realSetTimeout = globalThis.setTimeout.bind(globalThis);
+const RealMessageChannel: typeof MessageChannel | undefined =
+  typeof globalThis.MessageChannel === "function" ? globalThis.MessageChannel : undefined;
+
+/**
+ * A real clock, captured before `Date` and `performance` are replaced. The
+ * simulation's own time is virtual and free; this is the only way to answer
+ * "how long has this actually been running", which the wall-clock budget
+ * needs in order to stop a run that is going nowhere.
+ */
+export const realNow: () => number = (() => {
+  const perf = globalThis.performance;
+  if (perf && typeof perf.now === "function") {
+    const now = perf.now.bind(perf);
+    return () => now();
+  }
+  const now = Date.now;
+  return () => now();
+})();
+
+/**
+ * A MessagePort round-trip is a macrotask with no minimum delay, which makes
+ * it the right stand-in where `setImmediate` does not exist. Created once and
+ * unreferenced, so it never holds the process open.
+ */
+let channel: InstanceType<typeof MessageChannel> | undefined;
+const channelWaiters: (() => void)[] = [];
+
+/** Exported so the test suite can exercise this path directly: in Node the
+ *  `setImmediate` branch always wins, so the fallback would otherwise ship
+ *  untested and only be discovered by whoever runs unflake somewhere else. */
+export function yieldViaMessageChannel(): Promise<void> | null {
+  if (!RealMessageChannel) return null;
+  if (!channel) {
+    channel = new RealMessageChannel();
+    // Node's MessagePort speaks EventEmitter, the web's speaks onmessage and
+    // needs an explicit start(). Feature-detect rather than pick one, so this
+    // keeps working if the package is ever run outside Node.
+    const port = channel.port1 as unknown as {
+      on?: (event: string, listener: () => void) => void;
+      onmessage?: (() => void) | null;
+      start?: () => void;
+      unref?: () => void;
+    };
+    const drain = () => channelWaiters.shift()?.();
+    if (typeof port.on === "function") port.on("message", drain);
+    else {
+      port.onmessage = drain;
+      port.start?.();
+    }
+    port.unref?.();
+    (channel.port2 as unknown as { unref?: () => void }).unref?.();
+  }
+  return new Promise<void>((resolve) => {
+    channelWaiters.push(resolve);
+    channel?.port2.postMessage(null);
+  });
+}
 
 /**
  * Yield to the host event loop exactly once. Crossing a macrotask boundary
  * guarantees the microtask queue was drained to empty first — including
  * microtasks queued by other microtasks — which is precisely the "let all
  * pending promise continuations run" primitive the scheduler is built on.
+ *
+ * This runs once per scheduler step, so its cost is the cost of the whole
+ * tool. `setImmediate` and a MessagePort round-trip both take ~15µs;
+ * `setTimeout(fn, 0)` takes ~1.3ms, because Node floors timer delays at one
+ * millisecond. That is not a gentle degradation — it is 80× — so the timer is
+ * a last resort that should never actually be reached, rather than the
+ * fallback it used to be.
  */
 export function yieldToHost(): Promise<void> {
-  return new Promise<void>((resolve) => {
-    if (realSetImmediate) realSetImmediate(resolve);
-    else realSetTimeout(resolve, 0);
-  });
+  if (realSetImmediate) {
+    const schedule = realSetImmediate;
+    return new Promise<void>((resolve) => schedule(resolve));
+  }
+  return yieldViaMessageChannel() ?? new Promise<void>((resolve) => realSetTimeout(resolve, 0));
 }
 
 /**

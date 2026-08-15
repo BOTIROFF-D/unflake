@@ -14,7 +14,7 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import { TimerQueue, type Timer } from "./clock.js";
-import { GlobalPatch, yieldToHost } from "./globals.js";
+import { GlobalPatch, realNow, yieldToHost } from "./globals.js";
 import { Rng, normalizeSeed, type Seed } from "./prng.js";
 import { DecisionTape, EventLog } from "./trace.js";
 import type { Failure, IoOptions, RunResult, Sim, SimulateOptions } from "./types.js";
@@ -30,6 +30,7 @@ interface TaskContext {
 
 const DEFAULT_MAX_STEPS = 200_000;
 const DEFAULT_MAX_VIRTUAL_TIME = 24 * 60 * 60 * 1000;
+const DEFAULT_MAX_WALL_CLOCK_MS = 30_000;
 
 /** Only one simulation may own the globals at a time. */
 let kernelActive = false;
@@ -55,6 +56,7 @@ export class Kernel {
 
   private readonly maxSteps: number;
   private readonly maxVirtualTime: number;
+  private readonly maxWallClockMs: number;
 
   private step = 0;
   private pendingTasks = 0;
@@ -70,6 +72,7 @@ export class Kernel {
     this.events = new EventLog(options.eventLimit ?? 5000);
     this.maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
     this.maxVirtualTime = options.maxVirtualTime ?? DEFAULT_MAX_VIRTUAL_TIME;
+    this.maxWallClockMs = options.maxWallClockMs ?? DEFAULT_MAX_WALL_CLOCK_MS;
     this.patch = new GlobalPatch({
       queue: this.queue,
       currentTask: () => this.currentTask(),
@@ -295,9 +298,20 @@ export class Kernel {
 
   async run(body: (sim: Sim) => Promise<void> | void): Promise<RunResult> {
     if (kernelActive) {
-      throw new Error("unflake: a simulation is already running — simulations cannot nest");
+      // Almost always this means a previous run was abandoned rather than
+      // that someone nested two on purpose — a test runner killing a slow
+      // test leaves its simulation pending forever, and every later run in
+      // that process hits this. Saying so is the difference between a
+      // two-minute fix and an afternoon.
+      throw new Error(
+        "unflake: a simulation is already running. Either two simulations were " +
+          "started at once, or an earlier one never finished — a test timeout that " +
+          "kills a run leaves its globals patched. Lower maxWallClockMs so runs " +
+          "give up before your test runner does.",
+      );
     }
     kernelActive = true;
+    const startedAt = realNow();
 
     const onUnhandledRejection = (reason: unknown) => {
       this.record({
@@ -334,6 +348,18 @@ export class Kernel {
           this.record({
             kind: "budget",
             message: `step budget exhausted after ${this.maxSteps} steps — livelock, or a timer loop that never settles`,
+          });
+          break;
+        }
+
+        const elapsed = realNow() - startedAt;
+        if (elapsed > this.maxWallClockMs) {
+          this.record({
+            kind: "budget",
+            message:
+              `wall-clock budget exhausted after ${Math.round(elapsed)}ms of real time ` +
+              `(${this.step} steps, ${formatMs(this.queue.now)} of virtual time). Raise ` +
+              `maxWallClockMs if the run is genuinely this big.`,
           });
           break;
         }

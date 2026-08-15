@@ -1,8 +1,30 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
+
+### Fixed
+
+- **Runs were up to 80× slower on hosts without `setImmediate`.** The scheduler
+  yields to the host once per step, so that yield is the cost of the whole
+  tool. The fallback was `setTimeout(fn, 0)` — and Node floors timer delays at
+  one millisecond, turning a 15µs step into a 1.3ms one. A MessagePort
+  round-trip is a macrotask with no minimum delay and measures the same 15µs,
+  so it now sits between the two and the timer is a last resort that should
+  never be reached. Found when the audit job took eight minutes in CI and three
+  seconds locally.
+
+- The "a simulation is already running" error now names the cause people
+  actually hit. Nesting two runs on purpose is rare; a test runner killing a
+  slow run and leaving its globals patched is common, and every later run in
+  that process then failed with a message about nesting.
 
 ### Added
+
+- `maxWallClockMs` (default 30,000) — a real-time budget alongside the virtual
+  one. Virtual time is free, so a runaway run looks healthy from the inside
+  while burning real minutes; if the test runner kills it first the cleanup
+  never happens and every later test fails for unrelated reasons. Now the
+  kernel gives up on its own terms and restores the globals.
 
 - `audits/` — unflake run against 19 documented contracts across seven
   third-party async packages (`p-limit`, `p-queue`, `async-mutex`,

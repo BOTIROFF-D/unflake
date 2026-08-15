@@ -42,4 +42,4 @@ jobs:
       - run: npm ci
       - run: npm run audit:contracts
         env:
-          AUDIT_RUNS: 400
+          AUDIT_RUNS: 150

@@ -187,7 +187,7 @@ In JavaScript the closest thing is [`@sinonjs/fake-timers`](https://github.com/s
 
 ```bash
 npm install
-npm test          # 33 tests, including the determinism and exhaustiveness suites
+npm test          # 38 tests, including the determinism and exhaustiveness suites
 npm run typecheck
 npm run build
 ```

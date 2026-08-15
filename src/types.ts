@@ -54,6 +54,13 @@ export interface SimulateOptions {
   maxSteps?: number;
   /** Virtual milliseconds before the run is declared stuck. Default 24 hours. */
   maxVirtualTime?: number;
+  /**
+   * Real milliseconds before the run gives up. Virtual time is free, so a
+   * simulation can burn minutes of wall clock without its virtual clock
+   * looking unusual — and a run that never returns leaves the patched globals
+   * in place and breaks every test after it. Default 30,000.
+   */
+  maxWallClockMs?: number;
   /** Timeline events retained for the failure report. Default 5,000. */
   eventLimit?: number;
 }
