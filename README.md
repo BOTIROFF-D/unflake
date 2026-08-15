@@ -3,6 +3,7 @@
 **Deterministic simulation testing for TypeScript.** Find the async bug, then reproduce it from a seed — every time, on every machine.
 
 [![CI](https://github.com/BOTIROFF-D/unflake/actions/workflows/ci.yml/badge.svg)](https://github.com/BOTIROFF-D/unflake/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/unflake)](https://www.npmjs.com/package/unflake)
 ![zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 ![node](https://img.shields.io/badge/node-%E2%89%A518-blue)
 ![license](https://img.shields.io/badge/license-MIT-blue)
@@ -51,8 +52,7 @@ The second is **step 2, t=1ms**. Virtual time is free. A retry policy that backs
 ## Quickstart
 
 ```bash
-# Not on npm yet — install straight from the repo.
-npm install --save-dev github:BOTIROFF-D/unflake
+npm install --save-dev unflake
 ```
 
 ```ts
