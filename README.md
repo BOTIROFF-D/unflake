@@ -118,6 +118,14 @@ const report = await explore("a connection is never leased twice", body);
 
 The bound is the whole story, so be precise about what it covers. The model is macrotask ordering, virtual time, and the choices unflake records — not the machine. And the space has to be small enough to finish: there is no partial-order reduction here, so the tree grows multiplicatively, and a wide `latency: [1, 25]` is a 25-way branch at every I/O. Narrow the ranges for the tests you want to exhaust, and use `check` for the rest.
 
+## Pointed at real packages
+
+[`audits/`](./audits) runs unflake against 19 documented contracts across seven widely-used async packages — `p-limit`, `p-queue`, `async-mutex`, `async-sema`, `generic-pool`, `p-retry` and `bottleneck` — searching hundreds of schedules each.
+
+**Every contract held.** No bugs found, and that is the honest headline. These are mature packages whose core contracts every user exercises daily; a tool that claimed to break `p-limit`'s concurrency bound on its first afternoon would be telling you about its own calibration, not about `p-limit`. What the null result does show is that unflake drives seven third-party packages — their timers, their promise plumbing, their evictors — without any of them knowing it exists.
+
+One case looked like a real finding and was not: `bottleneck` launching two jobs 9ms apart under `minTime: 10`. [The audit README walks through why it was dismissed](./audits/README.md#the-one-that-looked-like-a-bug) — it reproduced off the simulator and survived re-measurement, but the gap was exactly 1ms across all 400 schedules, which is start-up cost rather than a scheduling defect. Filing it would have cost a maintainer an afternoon over one millisecond.
+
 ## API
 
 ```ts

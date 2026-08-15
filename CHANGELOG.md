@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `audits/` — unflake run against 19 documented contracts across seven
+  third-party async packages (`p-limit`, `p-queue`, `async-mutex`,
+  `async-sema`, `generic-pool`, `p-retry`, `bottleneck`). Every contract held;
+  the null result is published rather than quietly omitted. Runs via
+  `npm run audit:contracts` and in its own non-blocking CI job, because a
+  third-party release should not turn this repository's build red.
+
 ## 0.2.0
 
 ### Added

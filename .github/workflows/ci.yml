@@ -25,3 +25,21 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  audit:
+    # unflake pointed at seven third-party packages. Kept separate from the
+    # test job on purpose: a red build here would mean somebody else shipped a
+    # release this morning, which is worth knowing but is not a defect in
+    # unflake — so it reports without blocking.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run audit:contracts
+        env:
+          AUDIT_RUNS: 400
