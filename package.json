@@ -1,0 +1,59 @@
+{
+  "name": "unflake",
+  "version": "0.1.0",
+  "description": "Deterministic simulation testing for TypeScript. Find async races, deadlocks and lost retries — then reproduce them from a seed, every time.",
+  "keywords": [
+    "deterministic",
+    "simulation",
+    "testing",
+    "flaky",
+    "race-condition",
+    "deadlock",
+    "concurrency",
+    "async",
+    "fault-injection",
+    "property-testing"
+  ],
+  "license": "MIT",
+  "author": "BOTIROFF-D",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BOTIROFF-D/unflake.git"
+  },
+  "homepage": "https://github.com/BOTIROFF-D/unflake#readme",
+  "bugs": "https://github.com/BOTIROFF-D/unflake/issues",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "examples": "vitest run examples",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
