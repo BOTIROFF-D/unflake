@@ -51,7 +51,8 @@ The second is **step 2, t=1ms**. Virtual time is free. A retry policy that backs
 ## Quickstart
 
 ```bash
-npm install --save-dev unflake
+# Not on npm yet — install straight from the repo.
+npm install --save-dev github:BOTIROFF-D/unflake
 ```
 
 ```ts

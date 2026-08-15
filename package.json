@@ -48,6 +48,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "examples": "vitest run examples",
+    "prepare": "npm run build",
     "prepublishOnly": "npm run typecheck && npm run test && npm run build"
   },
   "devDependencies": {
